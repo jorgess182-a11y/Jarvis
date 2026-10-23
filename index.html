@@ -3,12 +3,676 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050b14">
 <title>JARVIS</title>
 <style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;
-       background:#050b14;color:#4de1ff;font-family:system-ui,sans-serif}
-  h1{letter-spacing:.4em;text-shadow:0 0 12px #4de1ff}
+:root{--bg:#050b14;--panel:rgba(10,25,41,.78);--line:rgba(77,225,255,.25);--cyan:#4de1ff;--cyan2:#1aa3c7;--text:#d6f3ff;--mute:#7fa6b8;--ok:#5dffb0;--warn:#ffcf5d;--bad:#ff6b7a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(ellipse at 50% -10%,#0b2a44 0,var(--bg) 60%) fixed}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;opacity:.12}
+main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:16px 14px 40px}
+header{text-align:center;padding:10px 0 18px}
+h1{margin:0;font-weight:300;letter-spacing:.4em;font-size:clamp(1.4rem,6vw,2.6rem);color:var(--cyan);text-shadow:0 0 18px rgba(77,225,255,.7)}
+.sub{margin:6px 0 0;color:var(--mute);font-size:.8rem;letter-spacing:.2em;text-transform:uppercase}
+.grid{display:grid;gap:14px}
+@media(min-width:900px){.grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;backdrop-filter:blur(6px);box-shadow:0 0 24px rgba(77,225,255,.07) inset}
+h2{margin:0 0 12px;font-size:.8rem;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--cyan)}
+.stwrap{text-align:center;margin-bottom:6px}
+.stbadge{display:inline-block;padding:5px 14px;border-radius:99px;border:1px solid var(--mute);color:var(--mute);font-size:.75rem;font-weight:700;letter-spacing:.18em}
+body[data-state=wake] .stbadge{color:var(--cyan);border-color:var(--cyan)}
+body[data-state=chat] .stbadge,body[data-state=once] .stbadge{color:var(--ok);border-color:var(--ok)}
+body[data-state=speaking] .stbadge,body[data-state=retry] .stbadge{color:var(--warn);border-color:var(--warn)}
+body[data-state=off] .stbadge{color:var(--bad);border-color:var(--bad)}
+.orbwrap{display:flex;justify-content:center;padding:6px 0 10px}
+.orb{width:112px;height:112px;border-radius:50%;border:2px solid var(--cyan2);font-size:2.4rem;color:var(--cyan);cursor:pointer;background:radial-gradient(circle at 50% 40%,rgba(77,225,255,.28),rgba(5,11,20,.9) 70%);box-shadow:0 0 22px rgba(77,225,255,.35)}
+.orb:disabled{opacity:.4;cursor:not-allowed}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+body[data-state=wake] .orb{animation:pulse 2.6s infinite}
+body[data-state=chat] .orb,body[data-state=once] .orb{animation:pulse .8s infinite;border-color:var(--ok);box-shadow:0 0 34px rgba(93,255,176,.7)}
+body[data-state=speaking] .orb,body[data-state=retry] .orb{animation:pulse 1.2s infinite;border-color:var(--warn);box-shadow:0 0 34px rgba(255,207,93,.6)}
+body[data-state=paused] .orb{border-color:var(--mute);box-shadow:none}
+body[data-state=off] .orb{border-color:var(--bad);box-shadow:0 0 26px rgba(255,107,122,.6)}
+@media(prefers-reduced-motion:reduce){.orb{animation:none!important}}
+.status{text-align:center;min-height:2.6em;margin:4px 0 12px;font-size:.95rem}
+.btn{padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(77,225,255,.08);color:var(--text);font-size:1rem;cursor:pointer}
+.btn.primary{background:rgba(77,225,255,.22);border-color:var(--cyan)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row .btn{flex:1 1 auto}
+input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:rgba(2,8,16,.7);color:var(--text);font-size:16px}
+.row input{flex:1 1 200px;width:auto}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+label{display:block;font-size:.75rem;color:var(--mute)}
+label select,label input{margin-top:4px}
+.check{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.9rem;color:var(--text)}
+.check input{width:auto}
+.note{font-size:.78rem;color:var(--mute);line-height:1.45;margin:8px 0 0}
+.warn{color:var(--warn)}
+#compat{list-style:none;margin:10px 0 0;padding:0;font-size:.8rem;color:var(--mute)}
+#compat li{margin:2px 0}
+.log{margin-top:12px;max-height:220px;overflow:auto;font-size:.85rem;border-top:1px solid var(--line);padding-top:8px}
+.msg{margin:4px 0;overflow-wrap:anywhere}
+.msg.you b{color:var(--ok)}.msg.bot b{color:var(--cyan)}.msg.sys b{color:var(--warn)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--mute);font-size:.9rem;cursor:pointer}
+.tabs button.on{color:var(--cyan);border-color:var(--cyan);background:rgba(77,225,255,.12)}
+.list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.task{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(2,8,16,.5)}
+.task.done{opacity:.5}.task.done .ttitle{text-decoration:line-through}
+.num{min-width:34px;text-align:center;color:var(--cyan);font-weight:700}
+.tbody{flex:1;min-width:0}
+.ttitle{overflow-wrap:anywhere}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.badge{font-size:.7rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.badge.prio-alta{color:var(--bad);border-color:var(--bad)}
+.badge.prio-media{color:var(--warn);border-color:var(--warn)}
+.badge.prio-baixa{color:var(--ok);border-color:var(--ok)}
+.badge.late{color:var(--bad);border-color:var(--bad);font-weight:700}
+.icon{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:rgba(77,225,255,.08);color:var(--text);font-size:1rem;cursor:pointer}
 </style>
 </head>
-<body><h1>JARVIS ONLINE</h1></body>
+<body data-state="idle">
+<main>
+<header>
+  <h1>J.A.R.V.I.S</h1>
+  <p class="sub">Assistente pessoal · pt-BR</p>
+</header>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Voz</h2>
+    <div class="stwrap"><span id="stbadge" class="stbadge">INATIVO</span></div>
+    <div class="orbwrap"><button id="btnMic" class="orb" aria-label="Falar um comando">🎙</button></div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <div class="row">
+      <button id="btnSessao" class="btn primary">▶ Iniciar escuta contínua</button>
+      <button id="btnPausa" class="btn" disabled>⏸ Pausar escuta</button>
+    </div>
+    <label class="check"><input type="checkbox" id="chkVoz" checked> Respostas faladas</label>
+    <label class="check"><input type="checkbox" id="chkTela"> Manter a tela ligada durante a escuta (opcional, gasta bateria)</label>
+    <p class="note"><b>Como usar:</b> toque em “Iniciar escuta contínua” uma vez e autorize o microfone. Diga “JARVIS”: ele responde “Às suas ordens” e passa a aceitar comandos por 25 segundos sem você repetir o nome (cada comando renova o prazo). Depois disso volta a aguardar “JARVIS”. Diga “JARVIS, pode descansar” para pausar; para voltar, toque em “Iniciar escuta contínua”.</p>
+    <p class="note warn"><b>Limitações:</b> o navegador não garante escuta contínua. Ela só funciona com esta página aberta e visível; com a tela bloqueada, o navegador em segundo plano ou outro app usando o microfone, a escuta pode ser interrompida, e este site não tenta contornar isso. O assistente não identifica quem está falando: ele só atende quando ouve “JARVIS” ou, durante a conversa, frases que começam como um comando; o resto é ignorado, mas pode haver erros em ambos os sentidos. Ele não ouve enquanto está falando. O reconhecimento de voz do Chrome normalmente envia o áudio ao serviço de voz do Google e exige internet. Use “Pausar escuta” para desligar o microfone.</p>
+    <ul id="compat"></ul>
+  </section>
+
+  <section class="panel">
+    <h2>Comando por texto</h2>
+    <form id="formCmd" class="row" autocomplete="off">
+      <input id="inpCmd" placeholder="Ex.: adicionar tarefa enviar relatório amanhã prioridade alta no trabalho">
+      <button class="btn primary">Enviar</button>
+    </form>
+    <p class="note">Comandos: “adicionar tarefa …” (aceita: no trabalho / em casa, prioridade alta/média/baixa, hoje, amanhã, dia 25, sexta, 25/10), “listar tarefas”, “listar tarefas de casa”, “concluir tarefa 2” ou “concluir tarefa relatório”, “resumir o dia”, “ajuda”, “pode descansar”.</p>
+    <div id="log" class="log" aria-live="polite"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Nova tarefa</h2>
+    <form id="formTask" autocomplete="off">
+      <input id="tTitle" placeholder="Descreva a tarefa" required maxlength="140">
+      <div class="fields">
+        <label>Categoria<select id="tCat"><option>Trabalho</option><option>Casa</option></select></label>
+        <label>Prioridade<select id="tPrio"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></label>
+        <label>Prazo<input type="date" id="tDue"></label>
+      </div>
+      <button class="btn primary">Adicionar tarefa</button>
+    </form>
+  </section>
+
+  <section class="panel wide">
+    <h2>Tarefas</h2>
+    <div class="tabs" id="tabs">
+      <button class="on" data-cat="Todas">Todas</button>
+      <button data-cat="Trabalho">Trabalho</button>
+      <button data-cat="Casa">Casa</button>
+    </div>
+    <label class="check"><input type="checkbox" id="chkDone"> Mostrar concluídas</label>
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="note" hidden>Nenhuma tarefa aqui ainda.</p>
+    <p class="note">As tarefas ficam salvas só neste navegador, neste aparelho (localStorage). Não há sincronização: o que você cadastra no celular não aparece no computador, e limpar os dados do navegador apaga tudo. Os números (#1, #2…) são os usados nos comandos de voz.</p>
+  </section>
+</div>
+</main>
+
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;};
+const KEY='jarvis.tarefas.v1';
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const hasTTS='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const CHAT_S=25,CHAT_MS=CHAT_S*1000;
+const WAKE=/\b(?:dj|j|g)arv(?:is|es|i|ys)\b/;
+const PM={alta:'Alta',media:'Média',baixa:'Baixa'};
+const PR={Alta:0,'Média':1,Baixa:2};
+const PCLS={Alta:'alta','Média':'media',Baixa:'baixa'};
+const NUMW={um:1,uma:1,dois:2,duas:2,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10};
+const WEEK={domingo:0,segunda:1,terca:2,quarta:3,quinta:4,sexta:5,sabado:6};
+const ICON={idle:'⚪',wake:'🔵',chat:'🟢',once:'🟢',speaking:'🟡',paused:'⏸',off:'🔴',retry:'🟠'};
+const LABEL={idle:'INATIVO',wake:'OUVINDO',chat:'EM CONVERSA',once:'OUVINDO',speaking:'FALANDO',paused:'PAUSADO',off:'DESCONECTADO',retry:'RECONECTANDO'};
+const logBox=$('log');
+
+/* Padrões de comando */
+const RE_ADD=/^(?:adicionar|adicione|adiciona|criar|crie|cria|anotar|anote|anota|cadastrar|cadastre|cadastra|incluir|inclua|inclui|nova tarefa|lembrar de|lembre-me de|lembre me de)\b\s*(?:(?:uma|a)\s+(?=nova|tarefa))?(?:nova\s+)?(?:tarefa\b\s*)?[:,-]?\s*/;
+const RE_DONE=/^(?:concluir|conclua|conclui|finalizar|finalize|finaliza|completar|complete|terminar|termine|terminei|marcar|marque|dar baixa|de baixa)\b\s*/;
+const RE_REST=/\bpode descansar\b|\bdescanse\b|\bpare de ouvir\b|\bpara de ouvir\b|\bpode dormir\b/;
+const RE_SUM=/\bresum(?:ir|o|a|e)\b|\bmeu dia\b|\bo que tenho (?:para|pra) hoje\b|\bpanorama\b/;
+const RE_HELP=/\bajuda\b|\bo que voce faz\b|\bcomandos\b|\bcomo funciona\b/;
+const RE_LIST=/\b(?:listar|liste|lista|mostrar|mostre|mostra|quais|consultar|consulte|leia|ler|o que tenho|que tarefas)\b|\btarefas\b/;
+/* Frases que, durante a conversa, parecem dirigidas ao assistente (começam como um comando) */
+const DIRECTED=/^(?:(?:por favor|agora|entao|e|jarvis)\s+)*(?:adicionar|adicione|criar tarefa|crie tarefa|anotar|anote|nova tarefa|incluir tarefa|cadastrar tarefa|concluir|conclua|conclui|finalizar|finalize|dar baixa|listar|liste|mostrar tarefas|mostre tarefas|mostre as tarefas|quais (?:sao )?(?:as |minhas |os )?tarefas|resumir|resumo|resuma|como esta (?:o |meu )?dia|meu dia|o que tenho|minhas tarefas|tarefas d[aeo]|ajuda|pode descansar|descanse)\b/;
+
+/* ---------- Armazenamento local ---------- */
+let storageOk=true;
+try{localStorage.setItem(KEY+'.t','1');localStorage.removeItem(KEY+'.t');}catch(e){storageOk=false;}
+let tasks=[];
+if(storageOk){try{const a=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(a))tasks=a.filter(t=>t&&typeof t.title==='string');}catch(e){tasks=[];}}
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify(tasks));}
+  catch(e){storageOk=false;showCompat();log('sys','Atenção: não consegui salvar no navegador (armazenamento bloqueado ou cheio).');}
+}
+
+/* ---------- Datas ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>iso(new Date());
+const addDays=n=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return iso(d);};
+const parseISO=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,12);};
+const brDate=s=>{const p=s.split('-');return p[2]+'/'+p[1];};
+const longDate=s=>parseISO(s).toLocaleDateString('pt-BR',{day:'numeric',month:'long'});
+function dueWord(s,spoken){const t=today();if(s===t)return 'hoje';if(s===addDays(1))return 'amanhã';return spoken?longDate(s):brDate(s);}
+function dueText(s,spoken){if(!s)return 'sem prazo';return (s<today()?'atrasada, prazo ':'prazo ')+dueWord(s,spoken);}
+
+/* ---------- Tarefas ---------- */
+function sorted(list){
+  return list.slice().sort((a,b)=>{
+    const da=a.due||'9999',db=b.due||'9999';
+    if(da!==db)return da<db?-1:1;
+    return (PR[a.prio]-PR[b.prio])||(a.created-b.created);
+  });
+}
+const pending=()=>sorted(tasks.filter(t=>!t.done));
+const numberOf=t=>pending().indexOf(t)+1;
+function addTask({title,cat,prio,due}){
+  const t={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:title.trim(),cat,prio,due:due||'',done:false,created:Date.now(),doneAt:null};
+  tasks.push(t);persist();render();return t;
+}
+function setDone(t,v){t.done=v;t.doneAt=v?Date.now():null;persist();render();}
+function removeTask(t){tasks=tasks.filter(x=>x!==t);persist();render();}
+
+let filterCat='Todas';
+function render(){
+  const pend=pending();
+  const nums=new Map(pend.map((t,i)=>[t,i+1]));
+  let show=pend.concat($('chkDone').checked?sorted(tasks.filter(t=>t.done)):[]);
+  show=show.filter(t=>filterCat==='Todas'||t.cat===filterCat);
+  const ul=$('list');ul.textContent='';
+  $('empty').hidden=show.length>0;
+  const t0=today();
+  for(const t of show){
+    const li=el('li','task'+(t.done?' done':''));
+    li.append(el('span','num',t.done?'✓':'#'+nums.get(t)));
+    const body=el('div','tbody');
+    body.append(el('div','ttitle',t.title));
+    const meta=el('div','meta');
+    meta.append(el('span','badge',t.cat),el('span','badge prio-'+PCLS[t.prio],t.prio));
+    meta.append(el('span','badge'+(!t.done&&t.due&&t.due<t0?' late':''),dueText(t.due,false)));
+    body.append(meta);
+    const bDone=el('button','icon',t.done?'↺':'✓');
+    bDone.setAttribute('aria-label',t.done?'Reabrir tarefa':'Concluir tarefa');
+    bDone.onclick=()=>setDone(t,!t.done);
+    const bDel=el('button','icon','✕');
+    bDel.setAttribute('aria-label','Excluir tarefa');
+    bDel.onclick=()=>{if(confirm('Excluir esta tarefa?'))removeTask(t);};
+    li.append(body,bDone,bDel);
+    ul.append(li);
+  }
+}
+
+/* ---------- Log e status ---------- */
+function log(who,text){
+  const p=el('p','msg '+who);
+  p.append(el('b',null,{you:'Você',bot:'JARVIS',sys:'Sistema'}[who]+': '),document.createTextNode(text));
+  logBox.append(p);
+  while(logBox.children.length>40)logBox.firstChild.remove();
+  logBox.scrollTop=logBox.scrollHeight;
+}
+function setStatus(state,text){
+  document.body.dataset.state=state;
+  $('stbadge').textContent=LABEL[state];
+  $('status').textContent=ICON[state]+' '+text;
+}
+
+/* ---------- Sons de estado ---------- */
+let actx=null;
+function beep(freq,dur){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type='sine';o.frequency.value=freq;g.gain.value=0.08;
+    o.connect(g);g.connect(actx.destination);
+    o.start();o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+const cueOn=()=>{beep(660,.09);setTimeout(()=>beep(990,.11),110);};
+const cueOff=()=>{beep(990,.09);setTimeout(()=>beep(520,.11),110);};
+
+/* ---------- Voz falada ---------- */
+let ptVoice=null;
+function pickVoice(){
+  if(!hasTTS)return;
+  const v=speechSynthesis.getVoices();
+  ptVoice=v.find(x=>x.lang==='pt-BR')||v.find(x=>x.lang.toLowerCase().replace('_','-')==='pt-br')||v.find(x=>x.lang.toLowerCase().startsWith('pt'))||null;
+  showCompat();
+}
+if(hasTTS){speechSynthesis.onvoiceschanged=pickVoice;pickVoice();}
+
+const S={mode:'idle',session:false,chat:false,speaking:false,suspended:false,offline:false,pauseAfter:false,rec:null,startedAt:0,quickFails:0,netErr:0,restartTimer:null,chatTimer:null,lastHeard:'',lastAt:0,sayId:0};
+
+function speak(text,done){
+  const id=++S.sayId;
+  let guard=null,finished=false;
+  const end=()=>{
+    if(finished)return;finished=true;clearTimeout(guard);
+    if(id!==S.sayId)return;
+    S.speaking=false;if(done)done();
+  };
+  if(!hasTTS||!$('chkVoz').checked){S.speaking=false;if(done)done();return;}
+  stopRec(); // o microfone fica desligado enquanto o assistente fala
+  S.speaking=true;setStatus('speaking','Falando… (não estou ouvindo enquanto falo)');
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;
+    u.onend=end;u.onerror=end;
+    guard=setTimeout(end,3000+text.length*100);
+    speechSynthesis.speak(u);
+  }catch(e){end();}
+}
+function cancelSpeech(){S.sayId++;S.speaking=false;if(hasTTS){try{speechSynthesis.cancel();}catch(e){}}}
+
+/* ---------- Reconhecimento de voz ---------- */
+function showListening(){
+  if(S.chat)setStatus('chat','Em conversa: pode falar. Volto a aguardar “JARVIS” após '+CHAT_S+' s sem comandos.');
+  else setStatus('wake','Ouvindo… diga “JARVIS”.');
+}
+function stopRec(){
+  clearTimeout(S.restartTimer);
+  if(S.rec){const r=S.rec;r._off=true;S.rec=null;try{r.abort();}catch(e){}}
+}
+function startRec(mode){
+  if(!SR)return;
+  stopRec();
+  S.mode=mode;S.startedAt=Date.now();
+  const r=new SR();
+  r.lang='pt-BR';r.continuous=mode==='listen';r.interimResults=false;r.maxAlternatives=1;
+  r.onstart=()=>{
+    if(r._off)return;
+    S.startedAt=Date.now();
+    if(S.mode==='once')setStatus('once','Ouvindo…');else showListening();
+  };
+  r.onresult=e=>{
+    if(r._off)return;
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)heard(e.results[i][0].transcript);
+    }
+  };
+  r.onerror=e=>onRecError(r,e.error);
+  r.onend=()=>onRecEnd(r);
+  S.rec=r;
+  try{r.start();}
+  catch(err){
+    S.rec=null;
+    if(S.session)scheduleRetry();
+    else{S.mode='idle';setStatus('off','Não foi possível iniciar o microfone: '+((err&&err.message)||err));}
+  }
+}
+function fail(msg){
+  stopRec();clearTimeout(S.chatTimer);
+  S.session=false;S.chat=false;S.mode='idle';S.pauseAfter=false;
+  cancelSpeech();releaseScreen();cueOff();
+  setStatus('off',msg);log('sys',msg);updateButtons();
+}
+function onRecError(r,err){
+  if(r._off)return;
+  const fatal={
+    'not-allowed':'Desconectado: permissão do microfone negada. Toque no cadeado ao lado do endereço, libere o microfone para este site e tente de novo.',
+    'service-not-allowed':'Desconectado: o navegador bloqueou o serviço de reconhecimento de voz neste contexto.',
+    'audio-capture':'Desconectado: nenhum microfone disponível, ou ele está em uso por outro aplicativo.',
+    'language-not-supported':'Desconectado: o reconhecimento em português do Brasil não está disponível neste navegador.'
+  };
+  if(fatal[err]){fail(fatal[err]);return;}
+  if(err==='network'){
+    S.netErr++;
+    if(S.mode==='once'||S.netErr>=3)fail('Desconectado: o serviço de voz do navegador não respondeu (ele precisa de internet). Escuta encerrada.');
+    return;
+  }
+  if(err==='no-speech'){if(S.mode==='once')log('sys','Não ouvi nada. Toque no microfone e fale de novo.');return;}
+  if(err==='aborted')return;
+  log('sys','Erro de voz: '+err);
+}
+function onRecEnd(r){
+  if(r._off||S.rec!==r)return;
+  S.rec=null;
+  if(S.mode==='once'){S.mode='idle';setStatus('idle','Pronto.');afterReply();return;}
+  scheduleRetry();
+}
+/* Reconexão controlada: se o microfone cai logo após iniciar, tenta de novo com espera crescente e desiste após 5 falhas seguidas */
+function scheduleRetry(){
+  if(!S.session||S.speaking||document.hidden||S.offline)return;
+  const lived=Date.now()-S.startedAt;
+  S.quickFails=lived<3000?S.quickFails+1:0;
+  if(S.quickFails>=5){fail('Desconectado: o navegador interrompeu o microfone várias vezes seguidas. Não tento contornar isso. Toque em “Iniciar escuta contínua” para tentar de novo, ou use o botão do microfone.');return;}
+  const delay=S.quickFails?Math.min(500*Math.pow(2,S.quickFails),8000):400;
+  if(S.quickFails)setStatus('retry','Reconectando… tentativa '+S.quickFails+' de 4');
+  clearTimeout(S.restartTimer);
+  S.restartTimer=setTimeout(()=>{
+    if(S.session&&!S.speaking&&!S.rec&&!document.hidden&&!S.offline)startRec('listen');
+  },delay);
+}
+function openChat(){S.chat=true;clearTimeout(S.chatTimer);cueOn();}
+function armChat(){
+  clearTimeout(S.chatTimer);
+  S.chatTimer=setTimeout(()=>{
+    if(!S.chat)return;
+    S.chat=false;cueOff();
+    log('sys','Fiquei '+CHAT_S+' s sem comandos. Voltei a aguardar “JARVIS”.');
+    if(S.session&&!S.speaking&&S.rec)showListening();
+  },CHAT_MS);
+}
+function afterReply(){
+  if(S.session){
+    if(document.hidden){S.suspended=true;S.chat=false;setStatus('paused','Em pausa: a página saiu de primeiro plano.');}
+    else if(S.offline){setStatus('off','Desconectado: sem internet. Retomo sozinho quando a conexão voltar.');}
+    else{
+      if(S.chat)armChat();
+      clearTimeout(S.restartTimer);
+      S.restartTimer=setTimeout(()=>{
+        if(S.session&&!S.speaking&&!S.rec&&!document.hidden&&!S.offline)startRec('listen');
+      },350);
+    }
+  }else if(document.body.dataset.state==='speaking')setStatus('idle','Pronto.');
+}
+function doneSpeak(){
+  if(S.pauseAfter){S.pauseAfter=false;pauseSession();return;}
+  afterReply();
+}
+function heard(text){
+  text=(text||'').trim();if(!text)return;
+  const now=Date.now();
+  if(text===S.lastHeard&&now-S.lastAt<2500)return; // evita resultados repetidos
+  S.lastHeard=text;S.lastAt=now;S.quickFails=0;S.netErr=0;
+  if(S.mode==='once'){stopRec();handle(text);return;}
+  const n=norm(text);
+  const m=WAKE.exec(n);
+  if(m){
+    const rest=text.slice(m.index+m[0].length).replace(/^[\s,.:;!?-]+/,'');
+    const before=n.slice(0,m.index).trim().split(/\s+/).filter(Boolean).length;
+    // “JARVIS” no começo da frase (até 2 palavras antes) ou seguido de um comando conta como chamada
+    if(!(before<=2||DIRECTED.test(norm(rest)))){
+      if(S.chat)log('sys','Ouvi “JARVIS” no meio de uma frase e ignorei.');
+      return;
+    }
+    stopRec();openChat();
+    if(rest.length>1)handle(rest);else greet();
+    return;
+  }
+  if(!S.chat)return; // fora da conversa, só reage à palavra JARVIS
+  if(DIRECTED.test(n)){stopRec();handle(text);}
+  else log('sys','Ignorei uma frase que não parecia um comando para mim.');
+}
+function greet(){
+  const msg='Às suas ordens.';
+  log('bot',msg);
+  speak(msg,doneSpeak);
+}
+function handle(text){
+  clearTimeout(S.chatTimer);
+  log('you',text);
+  let reply;
+  try{reply=interpret(text);}catch(e){console.error(e);reply='Tive um problema ao processar esse comando.';}
+  log('bot',reply);
+  speak(reply,doneSpeak);
+}
+
+/* ---------- Sessão de escuta contínua ---------- */
+let screenLock=null;
+async function holdScreen(){
+  try{if('wakeLock' in navigator&&!screenLock){screenLock=await navigator.wakeLock.request('screen');screenLock.addEventListener('release',()=>{screenLock=null;});}}catch(e){}
+}
+function releaseScreen(){try{if(screenLock)screenLock.release();}catch(e){}screenLock=null;}
+function startSession(){
+  if(!SR){log('sys','Este navegador não oferece reconhecimento de voz. Use o Chrome no Android.');return;}
+  if(!navigator.onLine){
+    setStatus('off','Desconectado: sem internet. O reconhecimento de voz do navegador precisa de conexão.');
+    log('sys','Sem internet: não foi possível iniciar a escuta.');return;
+  }
+  S.session=true;S.chat=false;S.suspended=false;S.offline=false;S.quickFails=0;S.netErr=0;S.pauseAfter=false;
+  cueOn();
+  log('sys','Escuta iniciada. Na primeira vez o navegador vai pedir permissão do microfone. Diga “JARVIS”.');
+  startRec('listen');
+  if($('chkTela').checked)holdScreen();
+  updateButtons();
+}
+function pauseSession(){
+  S.session=false;S.chat=false;S.pauseAfter=false;
+  clearTimeout(S.chatTimer);stopRec();S.mode='idle';
+  cancelSpeech();releaseScreen();cueOff();
+  setStatus('paused','Escuta pausada. O microfone está desligado. Toque em “Iniciar escuta contínua” para voltar.');
+  log('sys','Escuta pausada.');
+  updateButtons();
+}
+function updateButtons(){
+  $('btnSessao').disabled=!SR||S.session;
+  $('btnPausa').disabled=!S.session;
+  $('btnMic').disabled=!SR;
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    if(!S.session)return;
+    S.suspended=true;stopRec();clearTimeout(S.chatTimer);S.chat=false;S.mode='idle';
+    setStatus('paused','Em pausa: a página saiu de primeiro plano. O navegador não garante escuta nesse estado.');
+  }else{
+    render();
+    if(S.session&&S.suspended){
+      S.suspended=false;S.quickFails=0;
+      if($('chkTela').checked)holdScreen();
+      if(!S.speaking&&!S.offline)startRec('listen');
+    }
+  }
+});
+window.addEventListener('offline',()=>{
+  showCompat();
+  if(!S.session)return;
+  S.offline=true;stopRec();clearTimeout(S.chatTimer);S.chat=false;
+  setStatus('off','Desconectado: sem internet. Retomo sozinho quando a conexão voltar.');
+  log('sys','Sem internet. A escuta está suspensa.');
+});
+window.addEventListener('online',()=>{
+  showCompat();
+  if(!S.session||!S.offline)return;
+  S.offline=false;S.quickFails=0;S.netErr=0;
+  log('sys','Internet de volta. Retomando a escuta.');
+  if(!document.hidden&&!S.speaking)startRec('listen');
+});
+
+/* ---------- Interpretação de comandos ---------- */
+function extractMeta(text,defCat){
+  let n=norm(text),o=text;
+  const out={cat:defCat,prio:'Média',due:''};
+  const cut=(re,fn)=>{
+    const m=re.exec(n);if(!m)return false;
+    fn(m);
+    n=n.slice(0,m.index)+' '+n.slice(m.index+m[0].length);
+    o=o.slice(0,m.index)+' '+o.slice(m.index+m[0].length);
+    return true;
+  };
+  cut(/\b(?:categoria|no|na|de|do|da|em|para)\s+(trabalho|casa)\b/,m=>{out.cat=m[1]==='casa'?'Casa':'Trabalho';});
+  cut(/\b(?:prioridade\s+(alta|media|baixa)|(alta|media|baixa)\s+prioridade)\b/,m=>{out.prio=PM[m[1]||m[2]];});
+  cut(/\burgente\b/,()=>{out.prio='Alta';});
+  const C='(?:\\b(?:para|pra|ate|prazo|vence|no|na|em)\\s+)?';
+  cut(new RegExp(C+'\\bdepois de amanha\\b'),()=>{out.due=addDays(2);})
+  ||cut(new RegExp(C+'\\bamanha\\b'),()=>{out.due=addDays(1);})
+  ||cut(new RegExp(C+'\\bhoje\\b'),()=>{out.due=addDays(0);})
+  ||cut(new RegExp(C+'\\b(?:dia\\s+)?(\\d{1,2})/(\\d{1,2})\\b'),m=>{
+      const d=+m[1],mo=+m[2];
+      if(d>=1&&d<=31&&mo>=1&&mo<=12){
+        const y=new Date().getFullYear();let dt=new Date(y,mo-1,d,12);
+        if(iso(dt)<today())dt=new Date(y+1,mo-1,d,12);
+        out.due=iso(dt);
+      }})
+  ||cut(new RegExp(C+'\\bdia\\s+(\\d{1,2})\\b'),m=>{
+      const d=+m[1];
+      if(d>=1&&d<=31){
+        const now=new Date();let mo=now.getMonth();
+        if(d<now.getDate())mo++;
+        out.due=iso(new Date(now.getFullYear(),mo,d,12));
+      }})
+  ||cut(new RegExp(C+'\\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:-feira)?\\b'),m=>{
+      const diff=((WEEK[m[1]]-new Date().getDay()+7)%7)||7;
+      out.due=addDays(diff);
+    });
+  let title=o.replace(/\s+/g,' ').replace(/^[\s,.:;-]+/,'').replace(/[\s,.:;-]+$/,'').replace(/^(?:de|que|para|pra)\s+/i,'').trim();
+  out.title=title.charAt(0).toUpperCase()+title.slice(1);
+  return out;
+}
+const pl=(n,s,p)=>n+' '+(n===1?s:p);
+function interpret(raw){
+  let text=raw.trim().replace(/^[\s,.:;!?-]+/,'');
+  let n=norm(text);
+  const w=WAKE.exec(n);
+  if(w&&w.index===0){text=text.slice(w[0].length).replace(/^[\s,.:;!?-]+/,'');n=norm(text);}
+  if(!n)return 'Pois não? Diga, por exemplo: listar tarefas.';
+
+  let m=RE_ADD.exec(n);
+  if(m){
+    const help='O que devo adicionar? Diga, por exemplo: adicionar tarefa enviar relatório amanhã, prioridade alta, no trabalho.';
+    const rest=text.slice(m[0].length);
+    if(!rest.trim())return help;
+    const meta=extractMeta(rest,$('tCat').value);
+    if(!meta.title)return help;
+    const t=addTask(meta);
+    return 'Adicionei em '+t.cat+': '+t.title+'. Prioridade '+t.prio.toLowerCase()+'. '+(t.due?'Prazo: '+dueWord(t.due,true)+'.':'Sem prazo.');
+  }
+  m=RE_DONE.exec(n);
+  if(m)return completeCmd(n.slice(m[0].length));
+  if(RE_REST.test(n)){
+    if(!S.session)return 'A escuta contínua não está ativa no momento.';
+    S.pauseAfter=true;
+    return 'Certo, vou descansar. Toque em iniciar escuta quando precisar de mim.';
+  }
+  if(RE_SUM.test(n))return summary();
+  if(RE_HELP.test(n))
+    return 'Você pode dizer: adicionar tarefa, seguido da descrição, categoria, prioridade e prazo. Listar tarefas. Concluir tarefa, com o número ou parte do nome. Resumir o dia. Ou pode descansar.';
+  if(RE_LIST.test(n))return listCmd(n);
+  return 'Não entendi. Você pode dizer: adicionar tarefa, listar tarefas, concluir tarefa número tal, ou resumir o dia.';
+}
+function completeCmd(restNorm){
+  const q=restNorm.replace(/\b(?:a|o|as|os|tarefa|atividade|numero|como|feita|feito|concluida|concluido|finalizada|pronta)\b/g,' ').replace(/\s+/g,' ').trim();
+  if(!q)return 'Qual tarefa devo concluir? Diga o número da lista ou parte do nome.';
+  const pend=pending();
+  if(!pend.length)return 'Você não tem tarefas pendentes.';
+  let target=null;
+  const num=/^\d{1,3}$/.test(q)?+q:(NUMW[q]!==undefined?NUMW[q]:null);
+  if(num!==null){
+    target=pend[num-1];
+    if(!target)return 'Não encontrei a tarefa número '+num+'. Você tem '+pl(pend.length,'tarefa pendente','tarefas pendentes')+'.';
+  }else{
+    const words=q.split(' ').filter(x=>x.length>1);
+    if(!words.length)return 'Qual tarefa devo concluir? Diga o número da lista ou parte do nome.';
+    const hits=pend.filter(t=>{const tn=norm(t.title);return words.every(x=>tn.includes(x));});
+    if(hits.length===0)return 'Não achei nenhuma tarefa pendente com “'+q+'”.';
+    if(hits.length>1)return 'Encontrei '+hits.length+' tarefas parecidas. Diga o número: '+hits.slice(0,4).map(t=>'número '+numberOf(t)+', '+t.title).join('; ')+'.';
+    target=hits[0];
+  }
+  setDone(target,true);
+  return 'Tarefa concluída: '+target.title+'.';
+}
+function summary(){
+  const pend=pending(),t0=today();
+  if(!pend.length){
+    const d=tasks.filter(t=>t.done).length;
+    return d?'Nenhuma tarefa pendente. Você já concluiu '+d+'.':'Você ainda não tem tarefas cadastradas.';
+  }
+  const late=pend.filter(t=>t.due&&t.due<t0),hoje=pend.filter(t=>t.due===t0),alta=pend.filter(t=>t.prio==='Alta');
+  const tr=pend.filter(t=>t.cat==='Trabalho').length,ca=pend.length-tr;
+  const parts=['Você tem '+pl(pend.length,'tarefa pendente','tarefas pendentes')+': '+tr+' em Trabalho e '+ca+' em Casa.'];
+  if(late.length)parts.push(pl(late.length,'está atrasada','estão atrasadas')+'.');
+  if(hoje.length)parts.push('Para hoje: '+hoje.map(t=>t.title).join('; ')+'.');
+  if(alta.length)parts.push(pl(alta.length,'tem prioridade alta','têm prioridade alta')+'.');
+  parts.push('Próxima da fila: '+pend[0].title+'.');
+  return parts.join(' ');
+}
+function listCmd(n){
+  const cat=/\btrabalho\b/.test(n)?'Trabalho':(/\bcasa\b/.test(n)?'Casa':null);
+  const onlyToday=/\bhoje\b/.test(n);
+  const doneMode=/\bconcluidas?\b|\bfeitas?\b/.test(n);
+  let items=sorted(tasks.filter(t=>doneMode?t.done:!t.done));
+  if(cat)items=items.filter(t=>t.cat===cat);
+  if(onlyToday&&!doneMode)items=items.filter(t=>t.due&&t.due<=today());
+  const where=(cat?' em '+cat:'')+(onlyToday&&!doneMode?' para hoje ou atrasadas':'');
+  if(!items.length)return 'Nenhuma tarefa '+(doneMode?'concluída':'pendente')+where+'.';
+  const say=items.slice(0,5).map(t=>doneMode?t.title:'número '+numberOf(t)+', '+t.title+', prioridade '+t.prio.toLowerCase()+', '+dueText(t.due,true));
+  return pl(items.length,doneMode?'tarefa concluída':'tarefa',doneMode?'tarefas concluídas':'tarefas')+where+': '+say.join('. ')+'.'+(items.length>5?' E mais '+(items.length-5)+' na tela.':'');
+}
+
+/* ---------- Compatibilidade ---------- */
+function showCompat(){
+  const ul=$('compat');ul.textContent='';
+  const rows=[
+    [!!SR,'Reconhecimento de voz',SR?'disponível':'indisponível. Use o Chrome no Android; sem ele, só texto.'],
+    [hasTTS,'Respostas faladas',!hasTTS?'indisponível neste navegador; as respostas aparecem só em texto.':(ptVoice?'voz em português encontrada':'nenhuma voz pt-BR listada; será usada a voz padrão do aparelho')],
+    [storageOk,'Salvamento local',storageOk?'disponível':'indisponível (modo privado ou bloqueado); as tarefas se perdem ao fechar.'],
+    [window.isSecureContext,'Conexão segura (HTTPS)',window.isSecureContext?'ok':'o microfone exige HTTPS'],
+    [navigator.onLine,'Internet',navigator.onLine?'conectado':'sem conexão; o reconhecimento de voz não funciona offline']
+  ];
+  for(const r of rows)ul.append(el('li',null,(r[0]?'✓ ':'✗ ')+r[1]+': '+r[2]));
+}
+
+/* ---------- Eventos da interface ---------- */
+$('btnMic').addEventListener('click',()=>{
+  if(!SR)return;
+  if(S.mode==='once'&&S.rec){stopRec();S.mode='idle';setStatus('idle','Pronto.');afterReply();return;}
+  if(S.speaking)cancelSpeech();
+  clearTimeout(S.chatTimer);
+  cueOn();
+  startRec('once');
+});
+$('btnSessao').addEventListener('click',startSession);
+$('btnPausa').addEventListener('click',pauseSession);
+$('chkTela').addEventListener('change',()=>{
+  if(!S.session)return;
+  if($('chkTela').checked)holdScreen();else releaseScreen();
+});
+$('formCmd').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=$('inpCmd').value.trim();if(!v)return;
+  $('inpCmd').value='';handle(v);
+});
+$('formTask').addEventListener('submit',e=>{
+  e.preventDefault();
+  const title=$('tTitle').value.trim();if(!title)return;
+  const t=addTask({title,cat:$('tCat').value,prio:$('tPrio').value,due:$('tDue').value});
+  log('sys','Tarefa adicionada: '+t.title);
+  $('tTitle').value='';$('tDue').value='';
+});
+$('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  filterCat=b.dataset.cat;
+  for(const x of $('tabs').children)x.classList.toggle('on',x===b);
+  render();
+});
+$('chkDone').addEventListener('change',render);
+
+/* ---------- Início ---------- */
+render();showCompat();updateButtons();
+setStatus('idle',SR?'Inativo. Toque no microfone para um comando ou inicie a escuta contínua.':'Reconhecimento de voz indisponível neste navegador. Você ainda pode usar texto.');
+log('bot','Olá! Sou o JARVIS. Diga “ajuda” ou digite um comando para começar.');
+})();
+</script>
+</body>
 </html>
