@@ -261,15 +261,49 @@ function beep(freq,dur){
 const cueOn=()=>{beep(660,.09);setTimeout(()=>beep(990,.11),110);};
 const cueOff=()=>{beep(990,.09);setTimeout(()=>beep(520,.11),110);};
 
-/* ---------- Voz falada ---------- */
-let ptVoice=null;
-function pickVoice(){
-  if(!hasTTS)return;
-  const v=speechSynthesis.getVoices();
-  ptVoice=v.find(x=>x.lang==='pt-BR')||v.find(x=>x.lang.toLowerCase().replace('_','-')==='pt-br')||v.find(x=>x.lang.toLowerCase().startsWith('pt'))||null;
+
+/* ---------- Voz falada: perfil JARVIS ---------- */
+let ptVoice = null;
+
+function pickVoice() {
+  if (!hasTTS) return;
+
+  const voices = speechSynthesis.getVoices();
+
+  // Prioriza vozes brasileiras e nomes que sugerem voz natural.
+  const ptBR = voices.filter(v =>
+    /^pt[-_]BR$/i.test(v.lang)
+  );
+
+  const preferred = [
+    /natural/i,
+    /neural/i,
+    /google.*portugu/i,
+    /portugu.*google/i
+  ];
+
+  ptVoice =
+    ptBR.find(v => preferred.some(pattern => pattern.test(v.name))) ||
+    ptBR.find(v => !v.name.toLowerCase().includes('compact')) ||
+    ptBR[0] ||
+    voices.find(v => /^pt[-_]/i.test(v.lang)) ||
+    null;
+
   showCompat();
 }
-if(hasTTS){speechSynthesis.onvoiceschanged=pickVoice;pickVoice();}
+
+if (hasTTS) {
+  speechSynthesis.onvoiceschanged = pickVoice;
+  pickVoice();
+}
+
+/* Perfil de voz: grave, calmo e elegante */
+const VOZ_JARVIS = {
+  lang: 'pt-BR',
+  rate: 0.90,
+  pitch: 0.78,
+  volume: 1
+};
 
 const S={mode:'idle',session:false,chat:false,speaking:false,suspended:false,offline:false,pauseAfter:false,rec:null,startedAt:0,quickFails:0,netErr:0,restartTimer:null,chatTimer:null,lastHeard:'',lastAt:0,sayId:0};
 
@@ -286,9 +320,21 @@ function speak(text,done){
   S.speaking=true;setStatus('speaking','Falando… (não estou ouvindo enquanto falo)');
   try{
     speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;
-    u.onend=end;u.onerror=end;
+    
+const u = new SpeechSynthesisUtterance(text);
+
+u.lang = VOZ_JARVIS.lang;
+u.rate = VOZ_JARVIS.rate;
+u.pitch = VOZ_JARVIS.pitch;
+u.volume = VOZ_JARVIS.volume;
+
+if (ptVoice) {
+  u.voice = ptVoice;
+}
+
+u.onend = end;
+u.onerror = end;
+
     guard=setTimeout(end,3000+text.length*100);
     speechSynthesis.speak(u);
   }catch(e){end();}
